@@ -43,9 +43,18 @@ jobs:
     name: Build & push image
     needs: test
     runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.prep.outputs.image }}
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Lowercase image reference
+        id: prep
+        run: |
+          IMAGE_LC="${IMAGE,,}"
+          echo "IMAGE=$IMAGE_LC" >> "$GITHUB_ENV"
+          echo "image=${IMAGE_LC}:dev" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
 
@@ -91,7 +100,7 @@ jobs:
       - name: Run Ansible deploy
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DEPLOY_IMAGE: ${{ env.IMAGE }}:dev
+          DEPLOY_IMAGE: ${{ needs.build.outputs.image }}
         run: |
           ansible-playbook ansible/deploy-dev.yml \
             -i ansible/inventory/hosts.ini \
