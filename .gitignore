@@ -1,0 +1,30 @@
+# Editor
+.vscode/*
+!.vscode/extensions.json
+
+# Dependencies
+node_modules/
+
+# Environment — never commit real secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.ruff_cache/
+.venv/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# Docker
+postgres_data/
+
+# Test artifacts
+test.db
+/playwright-report/
+/test-results/

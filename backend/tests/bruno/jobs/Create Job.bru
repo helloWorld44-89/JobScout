@@ -1,0 +1,31 @@
+meta {
+  name: Create Job
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/jobs
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "title": "Senior Software Engineer",
+    "company": "Acme Corp",
+    "location": "Austin, TX",
+    "url": "https://example.com/jobs/123",
+    "description": "We are looking for a senior software engineer...",
+    "source": "indeed",
+    "status": "new"
+  }
+}

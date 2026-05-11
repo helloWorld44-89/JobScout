@@ -1,0 +1,27 @@
+meta {
+  name: Trigger Scrape
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/v1/jobs/scrape
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "keywords": "software engineer python",
+    "location": "Austin, TX",
+    "sources": ["indeed", "linkedin"]
+  }
+}

@@ -1,0 +1,18 @@
+meta {
+  name: Refresh Token
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/refresh
+  body: none
+  auth: none
+}
+
+script:post-response {
+  const data = res.getBody();
+  if (data && data.access_token) {
+    bru.setVar("accessToken", data.access_token);
+  }
+}

@@ -1,0 +1,59 @@
+repos:
+  # ── General hygiene ───────────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: mixed-line-ending
+
+  # ── Python: Ruff lint + format (backend only) ─────────────────────────────
+  # --exit-non-zero-on-fix means the commit is rejected when Ruff auto-fixes
+  # anything, so you can review the changes before re-staging.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.5.0
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        files: ^backend/
+      - id: ruff-format
+        files: ^backend/
+
+  # ── Python: mypy + ty (backend only) ─────────────────────────────────────
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: bash -c 'cd backend && uv run mypy app'
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: ty
+        name: ty
+        entry: bash -c 'cd backend && uv run ty check app'
+        language: system
+        types: [python]
+        pass_filenames: false
+
+  # ── Frontend: Biome lint + format ─────────────────────────────────────────
+      - id: biome
+        name: biome
+        entry: bash -c 'cd frontend && npx biome check --write .'
+        language: system
+        files: ^frontend/src/
+        types_or: [javascript, jsx, ts, tsx, json]
+        pass_filenames: false
+
+  # ── Frontend API client generation ────────────────────────────────────────
+  # Requires the backend to be running at http://localhost:8000.
+  # Skips gracefully if the backend is unreachable.
+      - id: generate-client
+        name: generate frontend API client
+        entry: bash ./scripts/generate-client.sh
+        language: system
+        files: ^backend/app/api/
+        pass_filenames: false

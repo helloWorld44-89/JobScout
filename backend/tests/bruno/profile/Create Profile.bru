@@ -1,0 +1,33 @@
+meta {
+  name: Create Profile
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/profile
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "resume_text": "Experienced software engineer with 5+ years in Python and FastAPI...",
+    "notification_email": "you@example.com",
+    "skills": ["Python", "FastAPI", "PostgreSQL", "Docker", "React"],
+    "scoring_criteria": {
+      "keywords": ["python", "fastapi", "postgresql", "react"],
+      "exclude": ["php", "ruby"],
+      "remote": true,
+      "min_salary": 120000
+    }
+  }
+}
