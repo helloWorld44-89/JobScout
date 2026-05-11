@@ -6,7 +6,8 @@ WORKDIR /app
 
 # Install dependencies — cached unless pyproject.toml changes
 COPY pyproject.toml .
-RUN uv sync --no-dev
+RUN uv sync --no-dev --extra scraping
+RUN uv run playwright install --with-deps chromium
 
 # Copy source and migration files
 COPY app/ app/

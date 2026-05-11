@@ -57,4 +57,4 @@ class JobRead(SQLModel):
 class ScrapeRequest(SQLModel):
     keywords: str
     location: str = ""
-    sources: list[str] = ["indeed", "linkedin"]
+    sources: list[str] = ["indeed", "linkedin", "hiringcafe"]

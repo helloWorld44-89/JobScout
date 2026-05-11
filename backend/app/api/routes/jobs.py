@@ -1,13 +1,16 @@
+import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.db.session import get_session
+from app.db.session import AsyncSessionLocal, get_session
 from app.models.job import Job, JobCreate, JobRead, JobStatus, JobUpdate, ScrapeRequest
 from app.models.profile import UserProfile
 from app.services.scorer import score_job
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -51,14 +54,49 @@ async def score_all_jobs(session: AsyncSession = Depends(get_session)) -> dict[s
 
 
 @router.post("/scrape", status_code=202)
-async def trigger_scrape(scrape_in: ScrapeRequest) -> dict:
-    # Stub — scraping implementation in Phase 2
+async def trigger_scrape(
+    scrape_in: ScrapeRequest,
+    background_tasks: BackgroundTasks,
+) -> dict[str, object]:
+    background_tasks.add_task(
+        _scrape_and_store,
+        scrape_in.keywords,
+        scrape_in.location,
+        scrape_in.sources,
+    )
     return {
-        "message": "Scrape queued",
+        "message": "Scrape started",
         "keywords": scrape_in.keywords,
         "location": scrape_in.location,
         "sources": scrape_in.sources,
     }
+
+
+async def _scrape_and_store(keywords: str, location: str, sources: list[str]) -> None:
+    from app.services.scraper import run_scrape
+
+    scraped = await run_scrape(keywords, location, sources)
+    if not scraped:
+        return
+
+    async with AsyncSessionLocal() as session:
+        new_count = 0
+        for j in scraped:
+            existing = await session.execute(select(Job).where(Job.url == j.url))
+            if existing.scalars().first():
+                continue
+            session.add(Job(
+                title=j.title,
+                company=j.company,
+                location=j.location,
+                url=j.url,
+                description=j.description,
+                source=j.source,
+                status=JobStatus.new,
+            ))
+            new_count += 1
+        await session.commit()
+        logger.info("scrape complete: %d new jobs stored", new_count)
 
 
 @router.post("/", response_model=JobRead, status_code=201)
