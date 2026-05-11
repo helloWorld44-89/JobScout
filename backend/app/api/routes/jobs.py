@@ -6,6 +6,8 @@ from sqlmodel import select
 
 from app.db.session import get_session
 from app.models.job import Job, JobCreate, JobRead, JobStatus, JobUpdate, ScrapeRequest
+from app.models.profile import UserProfile
+from app.services.scorer import score_job
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -20,6 +22,32 @@ async def list_jobs(
         query = query.where(Job.status == status)
     result = await session.execute(query)
     return result.scalars().all()
+
+
+@router.post("/score-all")
+async def score_all_jobs(session: AsyncSession = Depends(get_session)) -> dict[str, int]:
+    """Score every job with status 'new' against the stored profile criteria."""
+    profile_result = await session.execute(select(UserProfile))
+    profile = profile_result.scalars().first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not configured — cannot score jobs")
+
+    jobs_result = await session.execute(select(Job).where(Job.status == JobStatus.new))
+    jobs = list(jobs_result.scalars().all())
+
+    for job in jobs:
+        job.score = score_job(
+            title=job.title,
+            company=job.company,
+            location=job.location,
+            description=job.description,
+            criteria=profile.scoring_criteria,
+        )
+        job.status = JobStatus.scored
+        session.add(job)
+
+    await session.commit()
+    return {"scored": len(jobs)}
 
 
 @router.post("/scrape", status_code=202)
@@ -61,6 +89,35 @@ async def update_job(
         raise HTTPException(status_code=404, detail="Job not found")
     for key, value in job_in.model_dump(exclude_unset=True).items():
         setattr(job, key, value)
+    session.add(job)
+    await session.commit()
+    await session.refresh(job)
+    return job
+
+
+@router.post("/{job_id}/score", response_model=JobRead)
+async def score_single_job(
+    job_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> Job:
+    """Score one job against the stored profile criteria and mark it as 'scored'."""
+    job = await session.get(Job, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    profile_result = await session.execute(select(UserProfile))
+    profile = profile_result.scalars().first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not configured — cannot score jobs")
+
+    job.score = score_job(
+        title=job.title,
+        company=job.company,
+        location=job.location,
+        description=job.description,
+        criteria=profile.scoring_criteria,
+    )
+    job.status = JobStatus.scored
     session.add(job)
     await session.commit()
     await session.refresh(job)

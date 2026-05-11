@@ -34,3 +34,9 @@ class UserProfileRead(SQLModel):
     notification_email: str
     skills: list[str]
     scoring_criteria: dict[str, Any]
+
+
+class ParsedResumeResponse(SQLModel):
+    resume_text: str
+    skills: list[str]
+    keywords: list[str]

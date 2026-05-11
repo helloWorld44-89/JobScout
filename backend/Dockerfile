@@ -8,7 +8,9 @@ WORKDIR /app
 COPY pyproject.toml .
 RUN uv sync --no-dev
 
-# Copy source (overridden by volume mount in dev)
+# Copy source and migration files
 COPY app/ app/
+COPY migrations/ migrations/
+COPY alembic.ini .
 
 CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

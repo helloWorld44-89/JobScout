@@ -1,9 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.db.session import get_session
-from app.models.profile import UserProfile, UserProfileCreate, UserProfileRead, UserProfileUpdate
+from app.models.profile import (
+    ParsedResumeResponse,
+    UserProfile,
+    UserProfileCreate,
+    UserProfileRead,
+    UserProfileUpdate,
+)
+from app.services.ai import parse_resume as ai_parse_resume
+from app.services.parser import extract_resume_text
 
 router = APIRouter(prefix="/profile", tags=["profile"])
 
@@ -47,3 +55,17 @@ async def update_profile(
     await session.commit()
     await session.refresh(profile)
     return profile
+
+
+@router.post("/parse-resume", response_model=ParsedResumeResponse)
+async def parse_resume_endpoint(
+    file: UploadFile = File(...),
+) -> ParsedResumeResponse:
+    content = await file.read()
+    text = extract_resume_text(content, file.filename or "upload.txt")
+    parsed = await ai_parse_resume(text)
+    return ParsedResumeResponse(
+        resume_text=text,
+        skills=parsed["skills"],
+        keywords=parsed["keywords"],
+    )

@@ -1,0 +1,71 @@
+---
+- name: Deploy JobScout to dev VM
+  hosts: dev_vms
+  become: true
+
+  vars:
+    app_dir: /opt/jobscout
+    backend_image: "ghcr.io/helloworld44-89/jobscout-backend:dev"
+    ghcr_username: ""
+    ghcr_password: ""
+    env_file_src: ""
+
+  tasks:
+    - name: Ensure app directory exists
+      ansible.builtin.file:
+        path: "{{ app_dir }}"
+        state: directory
+        mode: "0750"
+
+    - name: Copy docker-compose.prod.yml
+      ansible.builtin.copy:
+        src: ../docker-compose.prod.yml
+        dest: "{{ app_dir }}/docker-compose.prod.yml"
+        mode: "0640"
+
+    - name: Copy .env file
+      ansible.builtin.copy:
+        src: "{{ env_file_src }}"
+        dest: "{{ app_dir }}/.env"
+        mode: "0600"
+
+    - name: Log in to GHCR
+      ansible.builtin.shell:
+        cmd: "echo '{{ ghcr_password }}' | docker login ghcr.io -u {{ ghcr_username }} --password-stdin"
+      no_log: true
+
+    - name: Pull latest backend image
+      ansible.builtin.command:
+        cmd: docker pull {{ backend_image }}
+
+    - name: Start database
+      ansible.builtin.command:
+        cmd: docker compose -f docker-compose.prod.yml up -d db
+        chdir: "{{ app_dir }}"
+      environment:
+        BACKEND_IMAGE: "{{ backend_image }}"
+
+    - name: Wait for database to be healthy
+      ansible.builtin.command:
+        cmd: docker compose -f docker-compose.prod.yml ps db
+        chdir: "{{ app_dir }}"
+      register: db_status
+      until: "'healthy' in db_status.stdout"
+      retries: 12
+      delay: 5
+      environment:
+        BACKEND_IMAGE: "{{ backend_image }}"
+
+    - name: Run database migrations
+      ansible.builtin.command:
+        cmd: docker compose --profile migration -f docker-compose.prod.yml run --rm migrate
+        chdir: "{{ app_dir }}"
+      environment:
+        BACKEND_IMAGE: "{{ backend_image }}"
+
+    - name: Deploy backend
+      ansible.builtin.command:
+        cmd: docker compose -f docker-compose.prod.yml up -d --force-recreate backend
+        chdir: "{{ app_dir }}"
+      environment:
+        BACKEND_IMAGE: "{{ backend_image }}"
